@@ -44,6 +44,9 @@ static atomic_t needs_reclaim = ATOMIC_INIT(0);
 static atomic_t needs_reap = ATOMIC_INIT(0);
 static atomic_t nr_killed = ATOMIC_INIT(0);
 
+/* Minimum number of pages to free adjusted by memory pressure. */
+int adaptive_min_free_pages;
+
 static int victim_cmp(const void *lhs_ptr, const void *rhs_ptr)
 {
 	const struct victim_info *lhs = (typeof(lhs))lhs_ptr;
@@ -153,7 +156,7 @@ static unsigned long find_victims(int *vindex)
 		     sizeof(*victims), victim_cmp, victim_swap);
 
 		/* Stop when we are out of space or have enough pages found */
-		if (*vindex == MAX_VICTIMS || pages_found >= MIN_FREE_PAGES) {
+		if (*vindex == MAX_VICTIMS || pages_found >= adaptive_min_free_pages) {
 			/* Zero out any remaining buckets we didn't touch */
 			if (i > min_adj)
 				memset(&task_bucket[min_adj], 0,
@@ -180,7 +183,7 @@ static int process_victims(int vlen)
 		struct task_struct *vtsk = victim->tsk;
 
 		/* The victim's mm lock is taken in find_victims; release it */
-		if (pages_found >= MIN_FREE_PAGES) {
+		if (pages_found >= adaptive_min_free_pages) {
 			task_unlock(vtsk);
 		} else {
 			pages_found += victim->size;
@@ -221,7 +224,7 @@ static void scan_and_kill(void)
 	}
 
 	/* Minimize the number of victims if we found more pages than needed */
-	if (pages_found > MIN_FREE_PAGES) {
+	if (pages_found > adaptive_min_free_pages) {
 		/* First round of processing to weed out unneeded victims */
 		nr_to_kill = process_victims(nr_found);
 
@@ -464,6 +467,13 @@ void simple_lmk_mm_freed(struct mm_struct *mm)
 static int simple_lmk_vmpressure_cb(struct notifier_block *nb,
 				    unsigned long pressure, void *data)
 {
+	if (pressure <= 50)
+		adaptive_min_free_pages = MIN_FREE_PAGES / 4;
+	else if (pressure >= 50)
+		adaptive_min_free_pages = MIN_FREE_PAGES / 2;
+	else if (pressure >= 90)
+		adaptive_min_free_pages = MIN_FREE_PAGES;
+
 	if (pressure == 100) {
 		atomic_set(&needs_reclaim, 1);
 		smp_mb__after_atomic();
