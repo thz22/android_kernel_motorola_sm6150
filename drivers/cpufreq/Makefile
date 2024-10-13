@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0
 # CPUfreq core
+
+ifdef CONFIG_INLINE_OPTIMIZATION
+ccflags-y += -mllvm -inline-threshold=15000
+ccflags-y += -mllvm -inlinehint-threshold=10000
+endif
+
 obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o freq_table.o
 
 # CPUfreq stats
