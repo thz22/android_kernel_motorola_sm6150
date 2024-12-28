@@ -733,10 +733,10 @@ KBUILD_CFLAGS   += -Os
 else
 KBUILD_CFLAGS   += -O3
 ifeq ($(cc-name),gcc)
-KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55+crypto+crc
+KBUILD_CFLAGS	+= -mcpu=cortex-a55.cortex-a55+crypto+crc
 endif
 ifeq ($(cc-name),clang)
-KBUILD_CFLAGS	+= -mcpu=cortex-a76+crypto+crc
+KBUILD_CFLAGS	+= -mcpu=cortex-a55+crypto+crc
 ifdef CONFIG_LTO_CLANG
 KBUILD_CFLAG	+= -fwhole-program-vtables
 endif
